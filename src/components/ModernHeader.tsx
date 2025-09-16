@@ -25,7 +25,6 @@ interface ModernHeaderProps {
 export function ModernHeader({ userProfile }: ModernHeaderProps) {
   const { signOut } = useAuth();
   const { totalItems } = useCart();
-  const { open, setOpen } = useSidebar();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -44,15 +43,9 @@ export function ModernHeader({ userProfile }: ModernHeaderProps) {
           </Button>
           
           {/* Desktop Menu Toggle */}
-          <SidebarTrigger asChild className="hidden lg:flex">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              className="hover:bg-primary/10"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-          </SidebarTrigger>
+          <div className="hidden lg:flex">
+            <SidebarTrigger />
+          </div>
 
           {/* Logo */}
           <div className="flex items-center space-x-2">

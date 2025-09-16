@@ -115,28 +115,26 @@ export function AppSidebar({ userProfile }: AppSidebarProps) {
             <SidebarMenu className="space-y-1">
               {mainItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild className="group">
-                    <NavLink 
-                      to={item.url} 
-                      className={`
-                        ${getNavClassName(isActive(item.url))}
-                        rounded-lg p-3 transition-all duration-200
-                        flex items-center space-x-3
-                        ${isCollapsed ? "justify-center" : ""}
-                      `}
-                      title={isCollapsed ? item.title : undefined}
-                    >
-                      <item.icon className={`h-5 w-5 ${isCollapsed ? "mx-auto" : ""}`} />
-                      {!isCollapsed && (
-                        <div className="flex-1 min-w-0">
-                          <span className="font-medium truncate block">{item.title}</span>
-                          <span className="text-xs opacity-70 truncate block">
-                            {item.description}
-                          </span>
-                        </div>
-                      )}
-                    </NavLink>
-                  </SidebarMenuButton>
+                  <NavLink 
+                    to={item.url} 
+                    className={`
+                      ${getNavClassName(isActive(item.url))}
+                      rounded-lg p-3 transition-all duration-200
+                      flex items-center space-x-3
+                      ${isCollapsed ? "justify-center" : ""}
+                    `}
+                    title={isCollapsed ? item.title : undefined}
+                  >
+                    <item.icon className={`h-5 w-5 ${isCollapsed ? "mx-auto" : ""}`} />
+                    {!isCollapsed && (
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium truncate block">{item.title}</span>
+                        <span className="text-xs opacity-70 truncate block">
+                          {item.description}
+                        </span>
+                      </div>
+                    )}
+                  </NavLink>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
@@ -186,28 +184,26 @@ export function AppSidebar({ userProfile }: AppSidebarProps) {
               <SidebarMenu className="space-y-1">
                 {adminItems.map((item) => (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild className="group">
-                      <NavLink 
-                        to={item.url} 
-                        className={`
-                          ${getNavClassName(isActive(item.url))}
-                          rounded-lg p-3 transition-all duration-200
-                          flex items-center space-x-3
-                          ${isCollapsed ? "justify-center" : ""}
-                        `}
-                        title={isCollapsed ? item.title : undefined}
-                      >
-                        <item.icon className={`h-5 w-5 ${isCollapsed ? "mx-auto" : ""}`} />
-                        {!isCollapsed && (
-                          <div className="flex-1 min-w-0">
-                            <span className="font-medium truncate block">{item.title}</span>
-                            <span className="text-xs opacity-70 truncate block">
-                              {item.description}
-                            </span>
-                          </div>
-                        )}
-                      </NavLink>
-                    </SidebarMenuButton>
+                    <NavLink 
+                      to={item.url} 
+                      className={`
+                        ${getNavClassName(isActive(item.url))}
+                        rounded-lg p-3 transition-all duration-200
+                        flex items-center space-x-3
+                        ${isCollapsed ? "justify-center" : ""}
+                      `}
+                      title={isCollapsed ? item.title : undefined}
+                    >
+                      <item.icon className={`h-5 w-5 ${isCollapsed ? "mx-auto" : ""}`} />
+                      {!isCollapsed && (
+                        <div className="flex-1 min-w-0">
+                          <span className="font-medium truncate block">{item.title}</span>
+                          <span className="text-xs opacity-70 truncate block">
+                            {item.description}
+                          </span>
+                        </div>
+                      )}
+                    </NavLink>
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>
