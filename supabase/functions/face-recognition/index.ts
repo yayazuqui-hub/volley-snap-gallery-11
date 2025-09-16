@@ -7,6 +7,8 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  console.log('Face recognition function called:', req.method)
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -40,18 +42,19 @@ serve(async (req) => {
     if (!openaiApiKey) {
       console.error('OpenAI API key not found')
       return new Response(
-        JSON.stringify({ error: 'OpenAI API key not configured' }),
+        JSON.stringify({ error: 'Serviço temporariamente indisponível. Chave da API não configurada.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     const matchingPhotos = []
     let processedCount = 0
+    let errorCount = 0
 
     // Process photos one by one to avoid overwhelming the API
-    for (const photo of photosToCompare.slice(0, 10)) { // Limit to first 10 photos
+    for (const photo of photosToCompare.slice(0, 8)) { // Reduced to 8 for better performance
       try {
-        console.log(`Processing photo ${processedCount + 1}/${Math.min(photosToCompare.length, 10)}`)
+        console.log(`Processing photo ${processedCount + 1}/${Math.min(photosToCompare.length, 8)}: ${photo.id}`)
         
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -60,11 +63,11 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'gpt-4o',
+            model: 'gpt-4o-mini', // Using more reliable model
             messages: [
               {
                 role: 'system',
-                content: 'You are a face recognition expert. Compare the faces in two images and determine if they show the same person. Respond with only "YES" if it\'s the same person or "NO" if it\'s different people or if you cannot clearly identify faces in both images.'
+                content: 'You are a face recognition expert. Compare the faces in two images and determine if they show the same person. Respond with only "YES" if it\'s clearly the same person or "NO" if it\'s different people or if you cannot clearly identify faces in both images. Be conservative - only say YES if you are confident it\'s the same person.'
               },
               {
                 role: 'user',
@@ -97,7 +100,7 @@ serve(async (req) => {
 
         if (response.ok) {
           const result = await response.json()
-          const answer = result.choices[0]?.message?.content?.trim().toUpperCase()
+          const answer = result.choices?.[0]?.message?.content?.trim()?.toUpperCase()
           
           console.log(`Photo ${photo.id}: ${answer}`)
           
@@ -106,34 +109,62 @@ serve(async (req) => {
           }
         } else {
           const errorText = await response.text()
-          console.error(`OpenAI API error for photo ${photo.id}:`, errorText)
+          console.error(`OpenAI API error for photo ${photo.id}:`, response.status, errorText)
+          errorCount++
+          
+          // If too many errors, stop processing
+          if (errorCount >= 3) {
+            console.error('Too many API errors, stopping process')
+            break
+          }
         }
 
         processedCount++
         
         // Small delay to respect rate limits
-        await new Promise(resolve => setTimeout(resolve, 200))
+        await new Promise(resolve => setTimeout(resolve, 500))
 
       } catch (error) {
         console.error(`Error processing photo ${photo.id}:`, error)
+        errorCount++
+        
+        // If too many errors, stop processing
+        if (errorCount >= 3) {
+          console.error('Too many processing errors, stopping')
+          break
+        }
       }
     }
 
-    console.log(`Completed processing. Found ${matchingPhotos.length} matching photos`)
+    console.log(`Completed processing. Found ${matchingPhotos.length} matching photos. Processed: ${processedCount}, Errors: ${errorCount}`)
+
+    // Check if we had too many errors
+    if (errorCount >= 3 && processedCount === 0) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Serviço de reconhecimento facial temporariamente indisponível. Tente novamente em alguns minutos.' 
+        }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     return new Response(
       JSON.stringify({ 
         matchingPhotos, 
         processedCount,
-        totalPhotos: photosToCompare.length 
+        totalPhotos: photosToCompare.length,
+        errorCount 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
-    console.error('Face recognition error:', error)
+    console.error('Face recognition function error:', error)
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
+      JSON.stringify({ 
+        error: 'Erro interno do servidor. Tente novamente mais tarde.',
+        details: error.message 
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

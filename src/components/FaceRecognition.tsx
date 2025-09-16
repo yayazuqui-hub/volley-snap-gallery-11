@@ -125,22 +125,45 @@ export const FaceRecognition: React.FC<FaceRecognitionProps> = ({
 
       if (error) {
         console.error('Supabase function error:', error);
+        
+        // Check specific error types
+        if (error.message?.includes('Failed to fetch')) {
+          throw new Error('Serviço de reconhecimento facial não está acessível. Verifique sua conexão com a internet.');
+        } else if (error.message?.includes('FunctionsError')) {
+          throw new Error('Erro na função de reconhecimento facial. Tente novamente em alguns minutos.');
+        } else if (error.message?.includes('404')) {
+          throw new Error('Função de reconhecimento facial não encontrada. Entre em contato com o suporte técnico.');
+        }
+        
         throw error;
+      }
+
+      if (!data) {
+        throw new Error('Resposta vazia do serviço. Tente novamente.');
       }
 
       const matchingPhotos = data?.matchingPhotos || [];
       const processedCount = data?.processedCount || 0;
+      const errorCount = data?.errorCount || 0;
 
       if (matchingPhotos.length === 0) {
+        let message = `Nenhuma foto com essa pessoa foi encontrada (processadas ${processedCount} fotos)`;
+        if (errorCount > 0) {
+          message += `. Houve ${errorCount} erro(s) durante o processamento.`;
+        }
         toast({
           title: "Resultado da busca",
-          description: `Nenhuma foto com essa pessoa foi encontrada (processadas ${processedCount} fotos)`,
+          description: message,
         });
         onPhotosFiltered([]);
       } else {
+        let message = `Encontradas ${matchingPhotos.length} foto(s) com essa pessoa (processadas ${processedCount} fotos)`;
+        if (errorCount > 0) {
+          message += `. Houve ${errorCount} erro(s) durante o processamento.`;
+        }
         toast({
           title: "Busca concluída!",
-          description: `Encontradas ${matchingPhotos.length} foto(s) com essa pessoa (processadas ${processedCount} fotos)`,
+          description: message,
         });
         onPhotosFiltered(matchingPhotos);
       }
@@ -150,12 +173,19 @@ export const FaceRecognition: React.FC<FaceRecognitionProps> = ({
       
       let errorMessage = "Erro ao processar reconhecimento facial. Tente novamente.";
       
+      // Handle different error types more specifically
       if (error?.message?.includes('Failed to fetch') || error?.name === 'FunctionsFetchError') {
-        errorMessage = "Serviço de reconhecimento facial temporariamente indisponível. Verifique se a chave da OpenAI está configurada.";
+        errorMessage = "Serviço de reconhecimento facial temporariamente indisponível. Verifique sua conexão e tente novamente.";
+      } else if (error?.message?.includes('404')) {
+        errorMessage = "Função de reconhecimento facial não encontrada. Entre em contato com o suporte.";
+      } else if (error?.message?.includes('503')) {
+        errorMessage = "Serviço da OpenAI temporariamente indisponível. Tente novamente em alguns minutos.";
+      } else if (error?.message?.includes('Serviço temporariamente indisponível')) {
+        errorMessage = error.message;
       }
       
       toast({
-        title: "Erro",
+        title: "Erro no Reconhecimento Facial",
         description: errorMessage,
         variant: "destructive"
       });
