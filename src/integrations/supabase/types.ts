@@ -50,6 +50,84 @@ export type Database = {
         }
         Relationships: []
       }
+      payments: {
+        Row: {
+          approved_at: string | null
+          created_at: string
+          id: string
+          mercado_pago_payment_id: string | null
+          mercado_pago_preference_id: string | null
+          photo_ids: string[]
+          status: string
+          total_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          created_at?: string
+          id?: string
+          mercado_pago_payment_id?: string | null
+          mercado_pago_preference_id?: string | null
+          photo_ids: string[]
+          status?: string
+          total_amount: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          created_at?: string
+          id?: string
+          mercado_pago_payment_id?: string | null
+          mercado_pago_preference_id?: string | null
+          photo_ids?: string[]
+          status?: string
+          total_amount?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      photo_purchases: {
+        Row: {
+          id: string
+          payment_id: string
+          photo_id: string
+          purchased_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          payment_id: string
+          photo_id: string
+          purchased_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          payment_id?: string
+          photo_id?: string
+          purchased_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_purchases_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photo_purchases_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: false
+            referencedRelation: "photos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       photos: {
         Row: {
           created_at: string
@@ -59,6 +137,7 @@ export type Database = {
           id: string
           mime_type: string
           original_name: string
+          price: number
           storage_path: string
           uploaded_by: string | null
         }
@@ -70,6 +149,7 @@ export type Database = {
           id?: string
           mime_type: string
           original_name: string
+          price?: number
           storage_path: string
           uploaded_by?: string | null
         }
@@ -81,6 +161,7 @@ export type Database = {
           id?: string
           mime_type?: string
           original_name?: string
+          price?: number
           storage_path?: string
           uploaded_by?: string | null
         }
