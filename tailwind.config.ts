@@ -57,6 +57,11 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        volleyball: {
+          primary: "hsl(var(--volleyball-primary))",
+          secondary: "hsl(var(--volleyball-secondary))",
+          accent: "hsl(var(--volleyball-accent))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

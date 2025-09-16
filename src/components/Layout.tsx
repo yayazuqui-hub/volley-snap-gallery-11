@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
+import { ModernHeader } from '@/components/ModernHeader';
 
 interface UserProfile {
   approved: boolean;
@@ -39,18 +40,18 @@ export function Layout({ children }: LayoutProps) {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="min-h-screen flex w-full bg-background">
         <AppSidebar userProfile={userProfile} />
         
         <div className="flex-1 flex flex-col">
-          {/* Header */}
-          <header className="h-16 border-b bg-background flex items-center px-6">
-            <SidebarTrigger className="mr-4" />
-          </header>
+          {/* Modern Header */}
+          <ModernHeader userProfile={userProfile} />
 
           {/* Main Content */}
-          <main className="flex-1 p-6 bg-background">
-            {children}
+          <main className="flex-1 p-4 lg:p-6 overflow-auto">
+            <div className="max-w-7xl mx-auto">
+              {children}
+            </div>
           </main>
         </div>
       </div>
