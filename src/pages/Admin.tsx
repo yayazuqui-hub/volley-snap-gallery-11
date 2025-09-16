@@ -29,6 +29,7 @@ interface Photo {
   storage_path: string;
   created_at: string;
   event_id: string | null;
+  price: number;
 }
 
 interface Event {
@@ -309,6 +310,31 @@ const Admin = () => {
     });
   };
 
+  const updatePhotoPrice = async (photoId: string, price: number) => {
+    const { error } = await supabase
+      .from('photos')
+      .update({ price })
+      .eq('id', photoId);
+
+    if (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o preço",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setPhotos(prev => prev.map(photo => 
+      photo.id === photoId ? { ...photo, price } : photo
+    ));
+
+    toast({
+      title: "Sucesso",
+      description: "Preço atualizado com sucesso"
+    });
+  };
+
   const deletePhoto = async (photoId: string, storagePath: string) => {
     try {
       // Delete from storage
@@ -551,6 +577,18 @@ const Admin = () => {
                 </div>
                 <CardContent className="p-3 space-y-2">
                   <p className="text-sm font-medium truncate">{photo.original_name}</p>
+                  <div className="space-y-2">
+                    <Label htmlFor={`price-${photo.id}`}>Preço (R$)</Label>
+                    <Input
+                      id={`price-${photo.id}`}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={photo.price}
+                      onChange={(e) => updatePhotoPrice(photo.id, parseFloat(e.target.value) || 0)}
+                      placeholder="0.00"
+                    />
+                  </div>
                   <Select 
                     value={photo.event_id || 'no-event'} 
                     onValueChange={(value) => updatePhotoEvent(photo.id, value === 'no-event' ? null : value)}

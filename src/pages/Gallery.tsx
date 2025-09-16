@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCart } from '@/hooks/useCart';
+import { usePurchases } from '@/hooks/usePurchases';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,7 +14,7 @@ import { ImageProtection } from '@/components/ImageProtection';
 import { PhotoViewer } from '@/components/PhotoViewer';
 import { FaceRecognition } from '@/components/FaceRecognition';
 import { toast } from '@/hooks/use-toast';
-import { Search, ShoppingCart, Calendar, ArrowLeft, Eye } from 'lucide-react';
+import { Search, ShoppingCart, Calendar, ArrowLeft, Eye, Plus, Minus, Download, Check } from 'lucide-react';
 
 interface Photo {
   id: string;
@@ -21,6 +22,7 @@ interface Photo {
   original_name: string;
   storage_path: string;
   created_at: string;
+  price: number;
   event_id: string | null;
   events?: {
     name: string;
@@ -43,6 +45,7 @@ const Gallery = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { isInCart, addItem, removeItem, totalItems } = useCart();
+  const { isPurchased, refreshPurchases } = usePurchases();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedEventId = searchParams.get('event');
   
@@ -57,6 +60,35 @@ const Gallery = () => {
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [faceFilteredPhotos, setFaceFilteredPhotos] = useState<string[]>([]);
   const [isFaceFilterActive, setIsFaceFilterActive] = useState(false);
+
+  // Check for payment status in URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentStatus = urlParams.get('payment');
+    
+    if (paymentStatus === 'success') {
+      toast({
+        title: "Pagamento aprovado!",
+        description: "Suas fotos já estão disponíveis para download sem marca d'água."
+      });
+      refreshPurchases();
+      // Clean URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (paymentStatus === 'failure') {
+      toast({
+        title: "Pagamento rejeitado",
+        description: "Houve um problema com seu pagamento. Tente novamente.",
+        variant: "destructive"
+      });
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (paymentStatus === 'pending') {
+      toast({
+        title: "Pagamento pendente",
+        description: "Seu pagamento está sendo processado. Aguarde a confirmação."
+      });
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [refreshPurchases]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -133,11 +165,6 @@ const Gallery = () => {
 
     if (error) {
       console.error('Error fetching photos:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível carregar as fotos",
-        variant: "destructive"
-      });
       return;
     }
 
@@ -159,11 +186,8 @@ const Gallery = () => {
     setEvents(data || []);
   };
 
-  const getPhotoUrl = (path: string) => {
-    const { data } = supabase.storage
-      .from('photos')
-      .getPublicUrl(path);
-    return data.publicUrl;
+  const getPhotoUrl = (storagePath: string) => {
+    return supabase.storage.from('photos').getPublicUrl(storagePath).data.publicUrl;
   };
 
   const handlePhotoView = (photo: Photo) => {
@@ -171,8 +195,7 @@ const Gallery = () => {
     setIsViewerOpen(true);
   };
 
-  const handleCartClick = (photo: Photo, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleCartClick = (photo: Photo) => {
     const cartItem = {
       id: photo.id,
       filename: photo.filename,
@@ -184,6 +207,57 @@ const Gallery = () => {
       removeItem(photo.id);
     } else {
       addItem(cartItem);
+    }
+  };
+
+  const downloadSinglePhoto = async (photo: Photo) => {
+    if (!userProfile?.approved) {
+      toast({
+        title: "Acesso negado",
+        description: "Você precisa de aprovação do administrador",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.storage
+        .from('photos')
+        .download(photo.storage_path);
+
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = photo.original_name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // Track download
+      if (user) {
+        await supabase
+          .from('user_downloads')
+          .upsert({
+            user_id: user.id,
+            photo_id: photo.id,
+            download_count: 1
+          });
+      }
+
+      toast({
+        title: "Download concluído",
+        description: `${photo.original_name} foi baixada com sucesso!`
+      });
+    } catch (error) {
+      console.error('Error downloading photo:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao baixar a foto",
+        variant: "destructive"
+      });
     }
   };
 
@@ -221,88 +295,82 @@ const Gallery = () => {
     setIsFaceFilterActive(false);
   };
 
-  const selectedEvent = events.find(e => e.id === eventFilter);
-
   if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="text-4xl mb-4">🏐</div>
-          <p className="text-muted-foreground">Carregando...</p>
+          <div className="text-4xl mb-4">📸</div>
+          <p className="text-muted-foreground">Carregando galeria...</p>
         </div>
       </div>
     );
   }
 
+  // Get current event info for header
+  const currentEvent = selectedEventId ? events.find(e => e.id === selectedEventId) : null;
+
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto py-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col space-y-4">
-        {selectedEventId && selectedEvent && (
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate('/events')}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          {selectedEventId && (
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/gallery')}
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar para Eventos
+              Todas as fotos
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold">{selectedEvent.name}</h1>
-              <p className="text-muted-foreground">
-                <Calendar className="h-4 w-4 inline mr-1" />
-                {new Date(selectedEvent.event_date).toLocaleDateString('pt-BR')}
-              </p>
-            </div>
-          </div>
-        )}
-        
-        {!selectedEventId && (
+          )}
           <div>
-            <h1 className="text-3xl font-bold">Galeria de Fotos</h1>
-            <p className="text-muted-foreground">
-              Explore todas as fotos dos eventos em miniatura
-            </p>
+            <h1 className="text-3xl font-bold">
+              {currentEvent ? currentEvent.name : 'Galeria de Fotos'}
+            </h1>
+            {currentEvent && (
+              <div className="flex items-center text-muted-foreground">
+                <Calendar className="h-4 w-4 mr-2" />
+                {new Date(currentEvent.event_date).toLocaleDateString('pt-BR')}
+              </div>
+            )}
           </div>
-        )}
+        </div>
+        <CartSidebar canDownload={userProfile?.approved} userId={user?.id} />
       </div>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar fotos..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
+        <div className="flex-1">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Pesquisar fotos..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
         </div>
-        
-        <Select value={eventFilter} onValueChange={handleEventFilterChange}>
-          <SelectTrigger className="w-full sm:w-64">
-            <SelectValue placeholder="Filtrar por evento" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os eventos</SelectItem>
-            {events.filter(event => event.id && event.id.trim() !== '').map((event) => (
-              <SelectItem key={event.id} value={event.id}>
-                {event.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <CartSidebar 
-          canDownload={userProfile?.approved || false} 
-          userId={user?.id}
-        />
+        <div className="w-full sm:w-64">
+          <Select value={eventFilter} onValueChange={handleEventFilterChange}>
+            <SelectTrigger>
+              <SelectValue placeholder="Filtrar por evento" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os eventos</SelectItem>
+              {events.map((event) => (
+                <SelectItem key={event.id} value={event.id}>
+                  {event.name} - {new Date(event.event_date).toLocaleDateString('pt-BR')}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* Face Recognition */}
+      {/* Face Recognition Filter */}
       <FaceRecognition
-        photos={photos.map(p => ({ id: p.id, storage_path: p.storage_path, original_name: p.original_name }))}
+        photos={filteredPhotos}
         onPhotosFiltered={handleFacePhotosFiltered}
         onClearFilter={handleClearFaceFilter}
         isActive={isFaceFilterActive}
@@ -310,98 +378,90 @@ const Gallery = () => {
 
       {/* Photos Grid */}
       {filteredPhotos.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <div className="text-4xl mb-4">
-              {searchQuery || eventFilter !== 'all' || isFaceFilterActive ? '🔍' : '📷'}
-            </div>
-            <h3 className="text-xl font-semibold mb-2">
-              {searchQuery || eventFilter !== 'all' || isFaceFilterActive ? 'Nenhuma foto encontrada' : 'Nenhuma foto ainda'}
-            </h3>
-            <p className="text-muted-foreground">
-              {searchQuery || eventFilter !== 'all' || isFaceFilterActive
-                ? 'Tente ajustar os filtros de busca ou reconhecimento facial'
-                : 'As fotos dos eventos serão adicionadas aqui em breve!'
-              }
-            </p>
-            {(searchQuery || eventFilter !== 'all' || isFaceFilterActive) && (
-              <div className="flex gap-2 justify-center mt-4 flex-wrap">
-                {searchQuery && (
-                  <Button onClick={() => setSearchQuery('')} variant="outline" size="sm">
-                    Limpar busca
-                  </Button>
-                )}
-                {eventFilter !== 'all' && (
-                  <Button onClick={() => handleEventFilterChange('all')} variant="outline" size="sm">
-                    Ver todas as fotos
-                  </Button>
-                )}
-                {isFaceFilterActive && (
-                  <Button onClick={handleClearFaceFilter} variant="outline" size="sm">
-                    Limpar filtro facial
-                  </Button>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <div className="text-center py-12">
+          <div className="text-4xl mb-4">📸</div>
+          <h3 className="text-lg font-semibold mb-2">Nenhuma foto encontrada</h3>
+          <p className="text-muted-foreground">
+            {searchQuery || eventFilter !== 'all' || isFaceFilterActive
+              ? 'Tente ajustar seus filtros de busca'
+              : 'Ainda não há fotos nesta galeria'
+            }
+          </p>
+        </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {filteredPhotos.map((photo) => (
-            <Card 
-              key={photo.id} 
-              className="group overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => handlePhotoView(photo)}
-            >
-              <div className="relative aspect-square bg-muted">
+            <Card key={photo.id} className="overflow-hidden group hover:shadow-lg transition-shadow">
+              <div className="relative aspect-square">
                 <ImageProtection
                   src={getPhotoUrl(photo.storage_path)}
                   alt={photo.original_name}
-                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                  className="w-full h-full object-cover"
                 />
-                
-                {/* Overlay com ações */}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="shadow-lg text-xs px-2 py-1"
-                  >
-                    <Eye className="h-3 w-3 mr-1" />
-                    Ver
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={isInCart(photo.id) ? "default" : "outline"}
-                    onClick={(e) => handleCartClick(photo, e)}
-                    className="shadow-lg text-xs px-2 py-1"
-                  >
-                    <ShoppingCart className="h-3 w-3 mr-1" />
-                    {isInCart(photo.id) ? 'Remover' : 'Carrinho'}
-                  </Button>
-                </div>
-
-                {/* Indicador se está no carrinho */}
-                {isInCart(photo.id) && (
-                  <Badge className="absolute top-1 right-1 bg-primary text-primary-foreground text-xs">
-                    <ShoppingCart className="h-2 w-2 mr-1" />
-                    ✓
-                  </Badge>
-                )}
-
-                {/* Info do evento */}
-                {photo.events && (
-                  <Badge variant="secondary" className="absolute bottom-1 left-1 text-xs px-1 py-0.5">
-                    {photo.events.name.substring(0, 15)}...
-                  </Badge>
-                )}
               </div>
-              
-              <CardContent className="p-2">
-                <p className="text-xs font-medium truncate">{photo.original_name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {new Date(photo.created_at).toLocaleDateString('pt-BR')}
-                </p>
+              <CardContent className="p-3">
+                <div className="space-y-2">
+                  <div>
+                    <h3 className="font-medium text-sm truncate">{photo.original_name}</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(photo.created_at).toLocaleDateString('pt-BR')}
+                    </p>
+                    {photo.events && (
+                      <Badge variant="outline" className="text-xs">
+                        {photo.events.name}
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-1">
+                      {photo.price > 0 ? (
+                        <Badge variant="default" className="text-xs">
+                          R$ {photo.price.toFixed(2)}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-xs">
+                          Gratuita
+                        </Badge>
+                      )}
+                      
+                      {isPurchased(photo.id) && (
+                        <Badge variant="default" className="text-xs bg-green-500">
+                          <Check className="h-3 w-3 mr-1" />
+                          Comprada
+                        </Badge>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center space-x-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePhotoView(photo)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      
+                      {photo.price === 0 || isPurchased(photo.id) ? (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => downloadSinglePhoto(photo)}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant={isInCart(photo.id) ? "destructive" : "default"}
+                          size="sm"
+                          onClick={() => handleCartClick(photo)}
+                        >
+                          {isInCart(photo.id) ? <Minus className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -415,7 +475,7 @@ const Gallery = () => {
         photo={selectedPhoto}
         photos={filteredPhotos}
         onNavigate={handleNavigatePhoto}
-        canDownload={false}
+        canDownload={userProfile?.approved}
         userId={user?.id}
       />
     </div>

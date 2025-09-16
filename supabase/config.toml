@@ -2,3 +2,9 @@ project_id = "oueujtveffxwcsjlaius"
 
 [functions.face-recognition]
 verify_jwt = false
+
+[functions.mercado-pago-payment]
+verify_jwt = true
+
+[functions.mercado-pago-webhook]
+verify_jwt = false
