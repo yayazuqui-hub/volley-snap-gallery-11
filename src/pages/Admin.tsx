@@ -1,20 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Calendar, Edit, Trash2, Upload } from 'lucide-react';
+import { 
+  Users, 
+  ImageIcon, 
+  Calendar, 
+  MapPin, 
+  Upload,
+  Trash2,
+  DollarSign
+} from 'lucide-react';
 
 interface UserProfile {
   id: string;
   name: string;
+  user_id: string;
   phone: string;
   approved: boolean;
   created_at: string;
@@ -25,9 +30,9 @@ interface Photo {
   filename: string;
   original_name: string;
   storage_path: string;
+  price: number;
   created_at: string;
   event_id: string | null;
-  price: number;
 }
 
 interface Event {
@@ -36,228 +41,167 @@ interface Event {
   description: string | null;
   event_date: string;
   location: string | null;
-  created_at: string;
+  thumbnail_url: string | null;
 }
 
 const Admin = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [createEventOpen, setCreateEventOpen] = useState(false);
-  const [selectedEventForUpload, setSelectedEventForUpload] = useState<string>('no-event');
-
+  
   // Event form state
-  const [eventForm, setEventForm] = useState({
-    name: '',
-    description: '',
-    event_date: '',
-    location: ''
-  });
+  const [eventName, setEventName] = useState('');
+  const [eventDescription, setEventDescription] = useState('');
+  const [eventDate, setEventDate] = useState('');
+  const [eventLocation, setEventLocation] = useState('');
+  
+  // Photo upload state
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/auth');
-      return;
-    }
-
-    if (user) {
-      checkAdminStatus();
-    }
-  }, [user, authLoading, navigate]);
-
-  const checkAdminStatus = async () => {
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('approved')
-      .eq('user_id', user.id)
-      .single();
-
-    if (error) {
-      console.error('Error checking admin status:', error);
-      navigate('/dashboard');
-      return;
-    }
-
-    if (!data?.approved) {
-      navigate('/dashboard');
-      return;
-    }
-
-    setIsAdmin(true);
     fetchUsers();
     fetchPhotos();
     fetchEvents();
-  };
+  }, []);
 
   const fetchUsers = async () => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*');
 
-    if (error) {
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error) {
       console.error('Error fetching users:', error);
-      return;
     }
-
-    setUsers(data || []);
-    setLoading(false);
   };
 
   const fetchPhotos = async () => {
-    const { data, error } = await supabase
-      .from('photos')
-      .select('*')
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('photos')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (error) {
+      if (error) throw error;
+      setPhotos(data || []);
+    } catch (error) {
       console.error('Error fetching photos:', error);
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    setPhotos(data || []);
   };
 
   const fetchEvents = async () => {
-    const { data, error } = await supabase
-      .from('events')
-      .select('*')
-      .order('event_date', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .order('event_date', { ascending: false });
 
-    if (error) {
+      if (error) throw error;
+      setEvents(data || []);
+    } catch (error) {
       console.error('Error fetching events:', error);
-      return;
     }
-
-    setEvents(data || []);
   };
 
-  const createEvent = async () => {
-    if (!eventForm.name || !eventForm.event_date) {
+  const handleApproveUser = async (userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ approved: true })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: "Usuário aprovado com sucesso!"
+      });
+
+      fetchUsers();
+    } catch (error) {
+      console.error('Error approving user:', error);
       toast({
         title: "Erro",
-        description: "Nome e data do evento são obrigatórios",
+        description: "Não foi possível aprovar o usuário",
         variant: "destructive"
       });
-      return;
     }
+  };
 
-    const { error } = await supabase
-      .from('events')
-      .insert({
-        ...eventForm,
-        created_by: user!.id
+  const handleCreateEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const { error } = await supabase
+        .from('events')
+        .insert([{
+          name: eventName,
+          description: eventDescription || null,
+          event_date: eventDate,
+          location: eventLocation || null
+        }]);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: "Evento criado com sucesso!"
       });
 
-    if (error) {
+      // Reset form
+      setEventName('');
+      setEventDescription('');
+      setEventDate('');
+      setEventLocation('');
+      
+      fetchEvents();
+    } catch (error) {
+      console.error('Error creating event:', error);
       toast({
         title: "Erro",
         description: "Não foi possível criar o evento",
         variant: "destructive"
       });
-      return;
     }
-
-    toast({
-      title: "Sucesso",
-      description: "Evento criado com sucesso!"
-    });
-
-    setEventForm({ name: '', description: '', event_date: '', location: '' });
-    setCreateEventOpen(false);
-    fetchEvents();
   };
 
-  const deleteEvent = async (eventId: string) => {
-    const { error } = await supabase
-      .from('events')
-      .delete()
-      .eq('id', eventId);
-
-    if (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível excluir o evento",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    toast({
-      title: "Sucesso",
-      description: "Evento excluído com sucesso"
-    });
-
-    fetchEvents();
-  };
-
-  const toggleUserApproval = async (userId: string, currentApproval: boolean) => {
-    const { error } = await supabase
-      .from('profiles')
-      .update({ approved: !currentApproval })
-      .eq('id', userId);
-
-    if (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível atualizar o usuário",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setUsers(prev => prev.map(user => 
-      user.id === userId ? { ...user, approved: !currentApproval } : user
-    ));
-
-    toast({
-      title: "Sucesso",
-      description: `Usuário ${!currentApproval ? 'aprovado' : 'bloqueado'} com sucesso`
-    });
-  };
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
     if (!files || files.length === 0) return;
 
     setUploading(true);
 
     try {
-      for (const file of files) {
+      for (const file of Array.from(files)) {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-        const filePath = `${fileName}`;
+        const filePath = `photos/${fileName}`;
 
-        // Upload to storage
+        // Upload to Supabase Storage
         const { error: uploadError } = await supabase.storage
           .from('photos')
           .upload(filePath, file);
 
-        if (uploadError) {
-          throw uploadError;
-        }
+        if (uploadError) throw uploadError;
 
-        // Save to database
+        // Save photo record to database
         const { error: dbError } = await supabase
           .from('photos')
-          .insert({
+          .insert([{
             filename: fileName,
             original_name: file.name,
+            storage_path: filePath,
             file_size: file.size,
             mime_type: file.type,
-            storage_path: filePath,
-            uploaded_by: user!.id,
-            event_id: selectedEventForUpload === 'no-event' ? null : selectedEventForUpload
-          });
+            price: 0.00 // Default price
+          }]);
 
-        if (dbError) {
-          throw dbError;
-        }
+        if (dbError) throw dbError;
       }
 
       toast({
@@ -266,14 +210,11 @@ const Admin = () => {
       });
 
       fetchPhotos();
-      
-      // Clear input
-      event.target.value = '';
     } catch (error) {
       console.error('Error uploading photos:', error);
       toast({
         title: "Erro",
-        description: "Erro ao enviar as fotos",
+        description: "Erro ao enviar fotos",
         variant: "destructive"
       });
     } finally {
@@ -281,83 +222,46 @@ const Admin = () => {
     }
   };
 
-  const updatePhotoEvent = async (photoId: string, eventId: string | null) => {
-    const { error } = await supabase
-      .from('photos')
-      .update({ event_id: eventId })
-      .eq('id', photoId);
+  const handleUpdatePhotoPrice = async (photoId: string, newPrice: number) => {
+    try {
+      const { error } = await supabase
+        .from('photos')
+        .update({ price: newPrice })
+        .eq('id', photoId);
 
-    if (error) {
+      if (error) throw error;
+
       toast({
-        title: "Erro",
-        description: "Não foi possível atualizar a foto",
-        variant: "destructive"
+        title: "Sucesso",
+        description: "Preço atualizado com sucesso!"
       });
-      return;
-    }
 
-    setPhotos(prev => prev.map(photo => 
-      photo.id === photoId ? { ...photo, event_id: eventId } : photo
-    ));
-
-    toast({
-      title: "Sucesso",
-      description: "Foto atualizada com sucesso"
-    });
-  };
-
-  const updatePhotoPrice = async (photoId: string, price: number) => {
-    const { error } = await supabase
-      .from('photos')
-      .update({ price })
-      .eq('id', photoId);
-
-    if (error) {
+      fetchPhotos();
+    } catch (error) {
+      console.error('Error updating photo price:', error);
       toast({
         title: "Erro",
         description: "Não foi possível atualizar o preço",
         variant: "destructive"
       });
-      return;
     }
-
-    setPhotos(prev => prev.map(photo => 
-      photo.id === photoId ? { ...photo, price } : photo
-    ));
-
-    toast({
-      title: "Sucesso",
-      description: "Preço atualizado com sucesso"
-    });
   };
 
-  const deletePhoto = async (photoId: string, storagePath: string) => {
+  const handleDeletePhoto = async (photoId: string) => {
     try {
-      // Delete from storage
-      const { error: storageError } = await supabase.storage
-        .from('photos')
-        .remove([storagePath]);
-
-      if (storageError) {
-        throw storageError;
-      }
-
-      // Delete from database
-      const { error: dbError } = await supabase
+      const { error } = await supabase
         .from('photos')
         .delete()
         .eq('id', photoId);
 
-      if (dbError) {
-        throw dbError;
-      }
-
-      setPhotos(prev => prev.filter(photo => photo.id !== photoId));
+      if (error) throw error;
 
       toast({
         title: "Sucesso",
-        description: "Foto excluída com sucesso"
+        description: "Foto excluída com sucesso!"
       });
+
+      fetchPhotos();
     } catch (error) {
       console.error('Error deleting photo:', error);
       toast({
@@ -368,289 +272,212 @@ const Admin = () => {
     }
   };
 
-  if (authLoading || loading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="text-4xl mb-4">🏐</div>
-          <p className="text-muted-foreground">Carregando...</p>
+          <div className="text-4xl mb-4">⚙️</div>
+          <p className="text-muted-foreground">Carregando painel administrativo...</p>
         </div>
       </div>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <Card>
-        <CardContent className="p-8 text-center">
-          <div className="text-4xl mb-4">🚫</div>
-          <h2 className="text-xl font-semibold mb-2">Acesso Negado</h2>
-          <p className="text-muted-foreground mb-4">Você não tem permissão para acessar esta página.</p>
-          <Button onClick={() => navigate('/dashboard')}>
-            Voltar ao Dashboard
-          </Button>
-        </CardContent>
-      </Card>
     );
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Administração</h1>
-        <p className="text-muted-foreground">Gerencie eventos, fotos e usuários</p>
+        <h1 className="text-3xl font-bold">Painel Administrativo</h1>
+        <p className="text-muted-foreground">
+          Gerencie eventos, fotos e usuários da plataforma
+        </p>
       </div>
 
-      <Tabs defaultValue="events" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="events">Eventos</TabsTrigger>
-          <TabsTrigger value="photos">Fotos</TabsTrigger>
-          <TabsTrigger value="users">Usuários</TabsTrigger>
-        </TabsList>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{users.length}</div>
+            <p className="text-xs text-muted-foreground">
+              {users.filter(u => u.approved).length} aprovados
+            </p>
+          </CardContent>
+        </Card>
 
-        <TabsContent value="events" className="space-y-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Gerenciar Eventos</CardTitle>
-              <Dialog open={createEventOpen} onOpenChange={setCreateEventOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Novo Evento
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Criar Novo Evento</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="name">Nome do Evento</Label>
-                      <Input
-                        id="name"
-                        value={eventForm.name}
-                        onChange={(e) => setEventForm({ ...eventForm, name: e.target.value })}
-                        placeholder="Ex: Campeonato de Vôlei 2024"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="date">Data do Evento</Label>
-                      <Input
-                        id="date"
-                        type="date"
-                        value={eventForm.event_date}
-                        onChange={(e) => setEventForm({ ...eventForm, event_date: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="location">Local</Label>
-                      <Input
-                        id="location"
-                        value={eventForm.location}
-                        onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })}
-                        placeholder="Ex: Ginásio Municipal"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="description">Descrição</Label>
-                      <Textarea
-                        id="description"
-                        value={eventForm.description}
-                        onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
-                        placeholder="Descrição opcional do evento"
-                      />
-                    </div>
-                    <Button onClick={createEvent} className="w-full">
-                      Criar Evento
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {events.map((event) => (
-                  <Card key={event.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-semibold">{event.name}</h3>
-                          <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                            <span>
-                              <Calendar className="h-3 w-3 inline mr-1" />
-                              {new Date(event.event_date).toLocaleDateString('pt-BR')}
-                            </span>
-                            {event.location && <span>{event.location}</span>}
-                          </div>
-                          {event.description && (
-                            <p className="text-sm text-muted-foreground mt-1">{event.description}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant="outline">
-                            {photos.filter(p => p.event_id === event.id).length} fotos
-                          </Badge>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => navigate(`/gallery?event=${event.id}`)}
-                          >
-                            <Calendar className="h-4 w-4 mr-1" />
-                            Ver
-                          </Button>
-                          <Button 
-                            variant="destructive" 
-                            size="sm"
-                            onClick={() => deleteEvent(event.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-                {events.length === 0 && (
-                  <div className="text-center py-8">
-                    <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">Nenhum evento criado</h3>
-                    <p className="text-muted-foreground">Crie seu primeiro evento para começar</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Fotos</CardTitle>
+            <ImageIcon className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{photos.length}</div>
+            <p className="text-xs text-muted-foreground">
+              Disponíveis na galeria
+            </p>
+          </CardContent>
+        </Card>
 
-        <TabsContent value="photos" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Upload de Fotos</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Eventos</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{events.length}</div>
+            <p className="text-xs text-muted-foreground">
+              Eventos cadastrados
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Create Event Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Criar Novo Evento</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleCreateEvent} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="event-select">Associar fotos ao evento (opcional)</Label>
-                <Select value={selectedEventForUpload} onValueChange={setSelectedEventForUpload}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um evento" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="no-event">Sem evento específico</SelectItem>
-                    {events.filter(event => event.id && event.id.trim() !== '').map((event) => (
-                      <SelectItem key={event.id} value={event.id}>
-                        {event.name} - {new Date(event.event_date).toLocaleDateString('pt-BR')}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="eventName">Nome do Evento</Label>
+                <Input
+                  id="eventName"
+                  value={eventName}
+                  onChange={(e) => setEventName(e.target.value)}
+                  required
+                />
               </div>
+              <div>
+                <Label htmlFor="eventDate">Data</Label>
+                <Input
+                  id="eventDate"
+                  type="date"
+                  value={eventDate}
+                  onChange={(e) => setEventDate(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="eventLocation">Local</Label>
               <Input
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={handleFileUpload}
-                disabled={uploading}
-                className="w-full"
+                id="eventLocation"
+                value={eventLocation}
+                onChange={(e) => setEventLocation(e.target.value)}
               />
-              {uploading && (
-                <p className="text-sm text-muted-foreground">
-                  Enviando fotos...
-                </p>
-              )}
-            </CardContent>
-          </Card>
+            </div>
+            <div>
+              <Label htmlFor="eventDescription">Descrição</Label>
+              <Input
+                id="eventDescription"
+                value={eventDescription}
+                onChange={(e) => setEventDescription(e.target.value)}
+              />
+            </div>
+            <Button type="submit">Criar Evento</Button>
+          </form>
+        </CardContent>
+      </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {/* Photo Upload */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Upload de Fotos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handlePhotoUpload}
+              disabled={uploading}
+            />
+            {uploading && (
+              <p className="text-sm text-muted-foreground">
+                Enviando fotos...
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Photos Management */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Gerenciar Fotos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
             {photos.map((photo) => (
-              <Card key={photo.id} className="overflow-hidden">
-                <div className="aspect-square bg-muted flex items-center justify-center">
-                  <img 
-                    src={supabase.storage.from('photos').getPublicUrl(photo.storage_path).data.publicUrl}
-                    alt={photo.original_name}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
+              <div key={photo.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <p className="font-medium">{photo.original_name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Enviada em {new Date(photo.created_at).toLocaleDateString('pt-BR')}
+                  </p>
                 </div>
-                <CardContent className="p-3 space-y-2">
-                  <p className="text-sm font-medium truncate">{photo.original_name}</p>
-                  <div className="space-y-2">
-                    <Label htmlFor={`price-${photo.id}`}>Preço (R$)</Label>
+                <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2">
+                    <DollarSign className="h-4 w-4" />
                     <Input
-                      id={`price-${photo.id}`}
                       type="number"
                       step="0.01"
                       min="0"
                       value={photo.price}
-                      onChange={(e) => updatePhotoPrice(photo.id, parseFloat(e.target.value) || 0)}
-                      placeholder="0.00"
+                      onChange={(e) => handleUpdatePhotoPrice(photo.id, parseFloat(e.target.value) || 0)}
+                      className="w-20"
                     />
                   </div>
-                  <Select 
-                    value={photo.event_id || 'no-event'} 
-                    onValueChange={(value) => updatePhotoEvent(photo.id, value === 'no-event' ? null : value)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Sem evento" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="no-event">Sem evento</SelectItem>
-                      {events.filter(event => event.id && event.id.trim() !== '').map((event) => (
-                        <SelectItem key={event.id} value={event.id}>
-                          {event.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button 
-                    onClick={() => deletePhoto(photo.id, photo.storage_path)}
+                  <Button
                     variant="destructive"
                     size="sm"
-                    className="w-full"
+                    onClick={() => handleDeletePhoto(photo.id)}
                   >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Excluir
+                    <Trash2 className="h-4 w-4" />
                   </Button>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ))}
           </div>
-        </TabsContent>
+        </CardContent>
+      </Card>
 
-        <TabsContent value="users" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Gerenciar Usuários</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {users.map((userProfile) => (
-                  <div key={userProfile.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <h3 className="font-medium">{userProfile.name}</h3>
-                      <p className="text-sm text-muted-foreground">{userProfile.phone}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Cadastrado em: {new Date(userProfile.created_at).toLocaleDateString('pt-BR')}
-                      </p>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Badge variant={userProfile.approved ? "default" : "secondary"}>
-                        {userProfile.approved ? "Aprovado" : "Pendente"}
-                      </Badge>
-                      <Button
-                        onClick={() => toggleUserApproval(userProfile.id, userProfile.approved)}
-                        variant={userProfile.approved ? "destructive" : "default"}
-                        size="sm"
-                      >
-                        {userProfile.approved ? "Bloquear" : "Aprovar"}
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+      {/* Users Management */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Gerenciar Usuários</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {users.map((user) => (
+              <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <p className="font-medium">{user.name}</p>
+                  <p className="text-sm text-muted-foreground">{user.phone}</p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Badge variant={user.approved ? "default" : "outline"}>
+                    {user.approved ? "Aprovado" : "Pendente"}
+                  </Badge>
+                  {!user.approved && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleApproveUser(user.id)}
+                    >
+                      Aprovar
+                    </Button>
+                  )}
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

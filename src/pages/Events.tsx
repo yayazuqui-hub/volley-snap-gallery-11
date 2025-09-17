@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { Calendar, MapPin, ImageIcon, Search, Plus } from 'lucide-react';
+import { Calendar, MapPin, ImageIcon, Search } from 'lucide-react';
 
 interface Event {
   id: string;
@@ -18,30 +18,16 @@ interface Event {
   photo_count?: number;
 }
 
-interface UserProfile {
-  approved: boolean;
-  name: string;
-}
-
 const Events = () => {
   const [searchParams] = useSearchParams();
   const [events, setEvents] = useState<Event[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/auth');
-      return;
-    }
-
-    if (user) {
-      fetchUserProfile();
-      fetchEvents();
-    }
-  }, [user, authLoading, navigate]);
+    fetchEvents();
+  }, []);
 
   useEffect(() => {
     // Filter events based on search query
@@ -50,48 +36,46 @@ const Events = () => {
     } else {
       const filtered = events.filter(event =>
         event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.location?.toLowerCase().includes(searchQuery.toLowerCase())
+        (event.description && event.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (event.location && event.location.toLowerCase().includes(searchQuery.toLowerCase()))
       );
       setFilteredEvents(filtered);
     }
-  }, [events, searchQuery]);
-
-  const fetchUserProfile = async () => {
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('approved, name')
-      .eq('user_id', user.id)
-      .single();
-
-    if (error) {
-      console.error('Error fetching user profile:', error);
-      return;
-    }
-
-    setUserProfile(data);
-  };
+  }, [searchQuery, events]);
 
   const fetchEvents = async () => {
     try {
-      const { data: eventsData, error: eventsError } = await supabase
+      const { data, error } = await supabase
         .from('events')
         .select(`
-          *,
-          photos(count)
+          id,
+          name,
+          description,
+          event_date,
+          location,
+          thumbnail_url
         `)
         .order('event_date', { ascending: false });
 
-      if (eventsError) throw eventsError;
+      if (error) throw error;
 
-      const eventsWithCount = eventsData?.map(event => ({
-        ...event,
-        photo_count: event.photos?.[0]?.count || 0
-      })) || [];
+      // Count photos for each event
+      const eventsWithPhotoCount = await Promise.all(
+        (data || []).map(async (event) => {
+          const { count } = await supabase
+            .from('photos')
+            .select('*', { count: 'exact', head: true })
+            .eq('event_id', event.id);
 
-      setEvents(eventsWithCount);
+          return {
+            ...event,
+            photo_count: count || 0
+          };
+        })
+      );
+
+      setEvents(eventsWithPhotoCount);
+      setFilteredEvents(eventsWithPhotoCount);
     } catch (error) {
       console.error('Error fetching events:', error);
       toast({
@@ -104,19 +88,21 @@ const Events = () => {
     }
   };
 
-  const handleEventClick = (eventId: string) => {
-    navigate(`/gallery?event=${eventId}`);
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR', {
-      day: '2-digit',
+      weekday: 'long',
+      year: 'numeric',
       month: 'long',
-      year: 'numeric'
+      day: 'numeric'
     });
   };
 
-  if (authLoading || loading) {
+  const handleViewEvent = (eventId: string) => {
+    // Navigate to gallery with event filter - simplified without navigation
+    console.log('View event:', eventId);
+  };
+
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -129,79 +115,45 @@ const Events = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Eventos</h1>
-          <p className="text-muted-foreground">
-            Explore os eventos e suas fotos
-          </p>
-        </div>
-
-        {userProfile?.approved && (
-          <Button onClick={() => navigate('/admin')}>
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Evento
-          </Button>
-        )}
+      <div>
+        <h1 className="text-3xl font-bold">Eventos</h1>
+        <p className="text-muted-foreground">
+          Confira todos os eventos de vôlei e suas fotos
+        </p>
       </div>
 
       {/* Search */}
-      <div className="flex items-center space-x-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar eventos..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <div className="text-sm text-muted-foreground">
-          {filteredEvents.length} evento(s) encontrado(s)
-        </div>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar eventos..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
       </div>
 
-      {/* Events Grid */}
-      {filteredEvents.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <div className="text-4xl mb-4">
-              {searchQuery ? '🔍' : '📅'}
-            </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredEvents.length === 0 ? (
+          <div className="col-span-full text-center py-12">
+            <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">
               {searchQuery ? 'Nenhum evento encontrado' : 'Nenhum evento ainda'}
             </h3>
-            <p className="text-muted-foreground mb-4">
+            <p className="text-muted-foreground">
               {searchQuery 
-                ? 'Tente buscar com outros termos'
+                ? 'Tente buscar com outros termos' 
                 : 'Os eventos serão exibidos aqui quando forem criados'
               }
             </p>
-            {searchQuery && (
-              <Button 
-                onClick={() => setSearchQuery('')}
-                variant="outline"
-              >
-                Limpar busca
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredEvents.map((event) => (
-            <Card 
-              key={event.id} 
-              className="cursor-pointer hover:shadow-lg transition-shadow group"
-              onClick={() => handleEventClick(event.id)}
-            >
+          </div>
+        ) : (
+          filteredEvents.map((event) => (
+            <Card key={event.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <CardTitle className="text-lg mb-2 group-hover:text-primary transition-colors">
-                      {event.name}
-                    </CardTitle>
+                    <CardTitle className="text-lg mb-2">{event.name}</CardTitle>
                     <div className="space-y-1 text-sm text-muted-foreground">
                       <div className="flex items-center">
                         <Calendar className="h-4 w-4 mr-2" />
@@ -215,30 +167,41 @@ const Events = () => {
                       )}
                     </div>
                   </div>
-                  <Badge variant="secondary" className="ml-2">
-                    <ImageIcon className="h-3 w-3 mr-1" />
-                    {event.photo_count}
+                  <Badge variant="secondary">
+                    {event.photo_count} fotos
                   </Badge>
                 </div>
               </CardHeader>
 
-              {event.description && (
-                <CardContent>
-                  <p className="text-sm text-muted-foreground line-clamp-3">
+              <CardContent>
+                {event.description && (
+                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
                     {event.description}
                   </p>
-                </CardContent>
-              )}
-
-              <CardContent className="pt-0">
-                <Button variant="outline" size="sm" className="w-full">
-                  Ver Fotos do Evento
-                </Button>
+                )}
+                
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <ImageIcon className="h-4 w-4 mr-1" />
+                    {event.photo_count} fotos disponíveis
+                  </div>
+                  
+                  {event.photo_count > 0 && (
+                    <Button 
+                      size="sm" 
+                      onClick={() => handleViewEvent(event.id)}
+                      className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+                    >
+                      <ImageIcon className="h-4 w-4 mr-2" />
+                      Ver Fotos
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </div>
   );
 };
