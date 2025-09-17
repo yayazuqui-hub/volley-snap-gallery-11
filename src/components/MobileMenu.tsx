@@ -7,28 +7,21 @@ import {
   Settings,
   X,
   ShoppingCart,
-  LogOut,
   User
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { useAuth } from '@/hooks/useAuth';
 import { useCart } from '@/hooks/useCart';
 
 interface MobileMenuProps {
   isOpen: boolean;
   onClose: () => void;
-  userProfile?: {
-    approved: boolean;
-    name: string;
-  } | null;
 }
 
-export function MobileMenu({ isOpen, onClose, userProfile }: MobileMenuProps) {
+export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const location = useLocation();
-  const { signOut } = useAuth();
   const { totalItems } = useCart();
   
   const currentPath = location.pathname;
@@ -54,14 +47,14 @@ export function MobileMenu({ isOpen, onClose, userProfile }: MobileMenuProps) {
     },
   ];
 
-  const adminItems = userProfile?.approved ? [
+  const adminItems = [
     { 
       title: "Administração", 
       url: "/admin", 
       icon: Settings,
       description: "Gerenciar" 
     },
-  ] : [];
+  ];
 
   const isActive = (path: string) => currentPath === path;
   
@@ -81,7 +74,7 @@ export function MobileMenu({ isOpen, onClose, userProfile }: MobileMenuProps) {
               <div>
                 <span className="font-bold text-lg gradient-text">Fotos do Vôlei</span>
                 <p className="text-xs text-muted-foreground font-normal">
-                  {userProfile?.name || 'Usuário'}
+                  Galeria de Fotos
                 </p>
               </div>
             </SheetTitle>
@@ -182,28 +175,15 @@ export function MobileMenu({ isOpen, onClose, userProfile }: MobileMenuProps) {
                 <User className="h-4 w-4" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium">{userProfile?.name || 'Usuário'}</p>
+                <p className="text-sm font-medium">Fotos do Vôlei</p>
                 <Badge 
-                  variant={userProfile?.approved ? "default" : "outline"} 
+                  variant="outline" 
                   className="text-xs"
                 >
-                  {userProfile?.approved ? "✓ Aprovado" : "⏳ Pendente"}
+                  🏐 Galeria
                 </Badge>
               </div>
             </div>
-            
-            <Button 
-              onClick={() => {
-                signOut();
-                onClose();
-              }}
-              variant="outline" 
-              size="sm" 
-              className="w-full hover:bg-destructive/10 hover:border-destructive/50 hover:text-destructive"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sair
-            </Button>
           </div>
         </div>
       </SheetContent>

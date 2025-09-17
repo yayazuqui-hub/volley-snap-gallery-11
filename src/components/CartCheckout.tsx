@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useCart } from '@/hooks/useCart';
-import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +20,6 @@ interface CartCheckoutProps {
 
 export function CartCheckout({ photos }: CartCheckoutProps) {
   const { items, clearCart } = useCart();
-  const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const cartPhotos = photos.filter(photo => 
@@ -31,15 +29,6 @@ export function CartCheckout({ photos }: CartCheckoutProps) {
   const totalAmount = cartPhotos.reduce((sum, photo) => sum + photo.price, 0);
 
   const handleCheckout = async () => {
-    if (!user) {
-      toast({
-        title: "Erro",
-        description: "Você precisa estar logado para fazer a compra",
-        variant: "destructive"
-      });
-      return;
-    }
-
     if (cartPhotos.length === 0) {
       toast({
         title: "Carrinho vazio",
@@ -60,10 +49,12 @@ export function CartCheckout({ photos }: CartCheckoutProps) {
     setIsProcessing(true);
 
     try {
+      const photoIds = cartPhotos.map(photo => photo.id);
       const { data, error } = await supabase.functions.invoke('mercado-pago-payment', {
         body: {
-          photo_ids: cartPhotos.map(photo => photo.id),
-          user_id: user.id
+          photo_ids: photoIds,
+          total_amount: totalAmount,
+          user_id: 'guest' // Since we don't have auth, use guest user
         }
       });
 

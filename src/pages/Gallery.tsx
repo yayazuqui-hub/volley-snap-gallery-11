@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
+import { useSearchParams } from 'react-router-dom';
 import { useCart } from '@/hooks/useCart';
 import { usePurchases } from '@/hooks/usePurchases';
 import { supabase } from '@/integrations/supabase/client';
@@ -42,8 +41,7 @@ interface UserProfile {
 }
 
 const Gallery = () => {
-  const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const [searchParams] = useSearchParams();
   const { isInCart, addItem, removeItem, totalItems } = useCart();
   const { isPurchased, refreshPurchases } = usePurchases();
   const [searchParams, setSearchParams] = useSearchParams();

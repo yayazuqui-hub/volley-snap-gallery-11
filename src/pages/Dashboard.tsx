@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,45 +23,26 @@ interface Stats {
 }
 
 const Dashboard = () => {
-  const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [stats, setStats] = useState<Stats>({ totalEvents: 0, totalPhotos: 0, recentEvents: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/auth');
-      return;
-    }
-
-    if (user) {
-      fetchDashboardData();
-    }
-  }, [user, authLoading, navigate]);
+    fetchDashboardData();
+  }, []);
 
   const fetchDashboardData = async () => {
     try {
-      // Fetch events with photo count
       const { data: eventsData, error: eventsError } = await supabase
         .from('events')
-        .select(`
-          *,
-          photos(count)
-        `)
+        .select(`*`)
         .order('event_date', { ascending: false })
         .limit(6);
 
       if (eventsError) throw eventsError;
 
-      const eventsWithCount = eventsData?.map(event => ({
-        ...event,
-        photo_count: event.photos?.[0]?.count || 0
-      })) || [];
+      setEvents(eventsData || []);
 
-      setEvents(eventsWithCount);
-
-      // Calculate stats
       const totalEvents = eventsData?.length || 0;
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -72,7 +51,6 @@ const Dashboard = () => {
         new Date(event.event_date) >= thirtyDaysAgo
       ).length || 0;
 
-      // Fetch total photos count
       const { count: totalPhotos } = await supabase
         .from('photos')
         .select('*', { count: 'exact', head: true });
@@ -95,10 +73,6 @@ const Dashboard = () => {
     }
   };
 
-  const handleEventClick = (eventId: string) => {
-    navigate(`/gallery?event=${eventId}`);
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR', {
       day: '2-digit',
@@ -107,7 +81,7 @@ const Dashboard = () => {
     });
   };
 
-  if (authLoading || loading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -120,7 +94,6 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground">
@@ -128,7 +101,6 @@ const Dashboard = () => {
         </p>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -170,13 +142,9 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Events Grid */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">Eventos Recentes</h2>
-          <Button variant="outline" onClick={() => navigate('/events')}>
-            Ver Todos
-          </Button>
         </div>
 
         {events.length === 0 ? (
@@ -192,11 +160,7 @@ const Dashboard = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {events.map((event) => (
-              <Card 
-                key={event.id} 
-                className="cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={() => handleEventClick(event.id)}
-              >
+              <Card key={event.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -214,10 +178,6 @@ const Dashboard = () => {
                         )}
                       </div>
                     </div>
-                    <Badge variant="secondary" className="ml-2">
-                      <ImageIcon className="h-3 w-3 mr-1" />
-                      {event.photo_count}
-                    </Badge>
                   </div>
                 </CardHeader>
 

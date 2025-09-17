@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,8 +40,6 @@ interface Event {
 }
 
 const Admin = () => {
-  const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [events, setEvents] = useState<Event[]>([]);

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,8 +24,7 @@ interface UserProfile {
 }
 
 const Events = () => {
-  const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const [searchParams] = useSearchParams();
   const [events, setEvents] = useState<Event[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);

@@ -1,30 +1,25 @@
-import React, { useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, ImageIcon, ShoppingCart, Sparkles, Users, Trophy } from 'lucide-react';
+import { Calendar, ImageIcon, ShoppingCart, Sparkles, Trophy } from 'lucide-react';
 
 const Index = () => {
   const navigate = useNavigate();
-  const { user, loading } = useAuth();
+  const [adminCode, setAdminCode] = useState('');
 
-  useEffect(() => {
-    if (!loading && user) {
-      navigate('/dashboard');
+  const handleAdminAccess = () => {
+    if (adminCode === 'admin123') {
+      navigate('/admin');
+    } else {
+      alert('Código de acesso inválido');
     }
-  }, [user, loading, navigate]);
+  };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-4xl mb-4">🏐</div>
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleUserAccess = () => {
+    navigate('/dashboard');
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
@@ -53,30 +48,45 @@ const Index = () => {
             </h1>
             
             <p className="text-xl lg:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              Acesse sua conta para ver fotos dos eventos, criar seu carrinho de fotos favoritas e muito mais. 
+              Veja fotos dos eventos, crie seu carrinho de fotos favoritas e muito mais. 
               <span className="text-primary font-medium">Faça parte da nossa comunidade!</span>
             </p>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
+          <div className="flex flex-col gap-6 justify-center max-w-md mx-auto">
             <Button 
-              onClick={() => navigate('/auth')}
+              onClick={handleUserAccess}
               size="lg"
-              className="flex-1 h-12 text-lg font-medium gradient-primary hover:shadow-lg hover:scale-105 transition-all duration-200"
+              className="h-12 text-lg font-medium gradient-primary hover:shadow-lg hover:scale-105 transition-all duration-200"
             >
-              <Users className="mr-2 h-5 w-5" />
-              Fazer Login
+              <ImageIcon className="mr-2 h-5 w-5" />
+              Ver Galeria de Fotos
             </Button>
-            <Button 
-              onClick={() => navigate('/admin')}
-              variant="outline"
-              size="lg"
-              className="flex-1 h-12 text-lg font-medium border-2 hover:bg-primary/10 hover:border-primary/50 hover:scale-105 transition-all duration-200"
-            >
-              <Trophy className="mr-2 h-5 w-5" />
-              Área Admin
-            </Button>
+            
+            <div className="space-y-3">
+              <div className="text-center">
+                <Trophy className="h-6 w-6 text-primary mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Área Administrativa</p>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  type="password"
+                  placeholder="Código de acesso"
+                  value={adminCode}
+                  onChange={(e) => setAdminCode(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAdminAccess()}
+                  className="flex-1"
+                />
+                <Button 
+                  onClick={handleAdminAccess}
+                  variant="outline"
+                  className="border-2 hover:bg-primary/10 hover:border-primary/50"
+                >
+                  Acessar
+                </Button>
+              </div>
+            </div>
           </div>
 
           {/* Feature Cards */}
@@ -136,11 +146,11 @@ const Index = () => {
               Junte-se a centenas de atletas que já utilizam nossa plataforma para guardar seus melhores momentos!
             </p>
             <Button 
-              onClick={() => navigate('/auth')}
+              onClick={handleUserAccess}
               className="gradient-primary hover:shadow-xl hover:scale-105 transition-all duration-300"
               size="lg"
             >
-              Começar Agora
+              Ver Fotos Agora
             </Button>
           </div>
         </div>

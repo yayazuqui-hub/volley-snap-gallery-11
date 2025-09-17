@@ -12,18 +12,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { MobileMenu } from '@/components/MobileMenu';
-import { useAuth } from '@/hooks/useAuth';
 import { useCart } from '@/hooks/useCart';
 
-interface ModernHeaderProps {
-  userProfile?: {
-    approved: boolean;
-    name: string;
-  } | null;
-}
-
-export function ModernHeader({ userProfile }: ModernHeaderProps) {
-  const { signOut } = useAuth();
+export function ModernHeader() {
   const { totalItems } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -53,7 +44,7 @@ export function ModernHeader({ userProfile }: ModernHeaderProps) {
             <div className="hidden sm:flex flex-col">
               <span className="font-bold text-lg gradient-text">Fotos do Vôlei</span>
               <span className="text-xs text-muted-foreground">
-                {userProfile?.name || 'Usuário'}
+                Galeria de Fotos
               </span>
             </div>
           </div>
@@ -121,31 +112,24 @@ export function ModernHeader({ userProfile }: ModernHeaderProps) {
                   <User className="h-4 w-4" />
                 </div>
                 <span className="hidden sm:block text-sm font-medium">
-                  {userProfile?.name || 'Usuário'}
+                  Menu
                 </span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 glass-effect">
               <div className="px-3 py-2">
-                <p className="text-sm font-medium">{userProfile?.name || 'Usuário'}</p>
+                <p className="text-sm font-medium">Fotos do Vôlei</p>
                 <Badge 
-                  variant={userProfile?.approved ? "default" : "outline"} 
+                  variant="outline" 
                   className="text-xs mt-1"
                 >
-                  {userProfile?.approved ? "Aprovado" : "Pendente"}
+                  Galeria
                 </Badge>
               </div>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="hover:bg-primary/10">
                 <User className="mr-2 h-4 w-4" />
                 Perfil
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={signOut}
-                className="hover:bg-destructive/10 text-destructive"
-              >
-                Sair
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -156,7 +140,6 @@ export function ModernHeader({ userProfile }: ModernHeaderProps) {
       <MobileMenu 
         isOpen={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
-        userProfile={userProfile}
       />
     </>
   );

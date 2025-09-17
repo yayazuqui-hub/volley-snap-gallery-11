@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Purchase {
@@ -8,36 +7,21 @@ interface Purchase {
 }
 
 export function usePurchases() {
-  const { user } = useAuth();
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      fetchPurchases();
-    } else {
-      setPurchases([]);
-      setLoading(false);
-    }
-  }, [user]);
+    fetchPurchases();
+  }, []);
 
   const fetchPurchases = async () => {
-    if (!user) return;
-
     try {
-      const { data, error } = await supabase
-        .from('photo_purchases')
-        .select('photo_id, purchased_at')
-        .eq('user_id', user.id);
-
-      if (error) {
-        console.error('Error fetching purchases:', error);
-        return;
-      }
-
-      setPurchases(data || []);
+        setLoading(true);
+        // Since we don't have auth, we'll just return empty purchases
+        setPurchases([]);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error fetching purchases:', error);
+      setPurchases([]);
     } finally {
       setLoading(false);
     }
@@ -48,9 +32,7 @@ export function usePurchases() {
   };
 
   const refreshPurchases = () => {
-    if (user) {
-      fetchPurchases();
-    }
+    fetchPurchases();
   };
 
   return {

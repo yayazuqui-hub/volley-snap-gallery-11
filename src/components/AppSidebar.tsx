@@ -24,14 +24,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/hooks/useCart';
 
-interface AppSidebarProps {
-  userProfile?: {
-    approved: boolean;
-    name: string;
-  } | null;
-}
-
-export function AppSidebar({ userProfile }: AppSidebarProps) {
+export function AppSidebar() {
   const location = useLocation();
   const { totalItems } = useCart();
   const { state } = useSidebar();
@@ -60,14 +53,14 @@ export function AppSidebar({ userProfile }: AppSidebarProps) {
     },
   ];
 
-  const adminItems = userProfile?.approved ? [
+  const adminItems = [
     { 
       title: "Administração", 
       url: "/admin", 
       icon: Settings,
       description: "Gerenciar" 
     },
-  ] : [];
+  ];
 
   const isActive = (path: string) => currentPath === path;
   
@@ -98,7 +91,7 @@ export function AppSidebar({ userProfile }: AppSidebarProps) {
                   Fotos do Vôlei
                 </h2>
                 <p className="text-xs text-muted-foreground truncate">
-                  {userProfile?.name || 'Usuário'}
+                  Galeria de Fotos
                 </p>
               </div>
             </div>
@@ -217,10 +210,10 @@ export function AppSidebar({ userProfile }: AppSidebarProps) {
         {!isCollapsed && (
           <div className="flex items-center justify-center mb-3">
             <Badge 
-              variant={userProfile?.approved ? "default" : "outline"} 
+              variant="outline" 
               className="text-xs"
             >
-              {userProfile?.approved ? "✓ Aprovado" : "⏳ Pendente"}
+              🏐 Vôlei
             </Badge>
           </div>
         )}

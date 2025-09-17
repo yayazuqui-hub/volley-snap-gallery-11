@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
 
 interface ImageProtectionProps {
   src: string;
@@ -14,7 +13,6 @@ export const ImageProtection: React.FC<ImageProtectionProps> = ({
   className = "", 
   onLoad 
 }) => {
-  const { user } = useAuth();
   const [protectedImageUrl, setProtectedImageUrl] = useState<string>('');
 
   useEffect(() => {
@@ -93,7 +91,7 @@ export const ImageProtection: React.FC<ImageProtectionProps> = ({
     };
 
     addWatermark();
-  }, [src, user?.email, onLoad]);
+  }, [src, onLoad]);
 
   // Prevenir drag and drop
   const handleDragStart = (e: React.DragEvent) => {

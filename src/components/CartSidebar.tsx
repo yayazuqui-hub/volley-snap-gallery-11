@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useCart } from '@/hooks/useCart';
-import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
